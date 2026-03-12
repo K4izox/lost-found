@@ -43,8 +43,8 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/dashboard" className="hover:text-primary-foreground transition-colors">
-                  My Dashboard
+                <Link to="/profile" className="hover:text-primary-foreground transition-colors">
+                  My Profile
                 </Link>
               </li>
             </ul>
@@ -81,9 +81,16 @@ const Footer = () => {
           <div>
             <h3 className="font-semibold mb-4">Contact Us</h3>
             <ul className="space-y-3 text-sm text-primary-foreground/80">
-              <li className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4" />
-                <span>Jababeka Education Park, Cikarang</span>
+              <li className="flex items-start space-x-2">
+                <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                <a
+                  href="https://maps.google.com/?q=President+University,+Jababeka+Education+Park,+Cikarang"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-primary-foreground transition-colors"
+                >
+                  Jababeka Education Park, Cikarang
+                </a>
               </li>
               <li className="flex items-center space-x-2">
                 <Mail className="h-4 w-4" />
@@ -92,20 +99,19 @@ const Footer = () => {
                 </a>
               </li>
               <li className="flex items-center space-x-2">
-                <Phone className="h-4 w-4" />
-                <span>+62 21 8910 9762</span>
+                <Phone className="h-4 w-4 shrink-0" />
+                <a href="tel:+6282152918946" className="hover:text-primary-foreground transition-colors">
+                  +62 821-5291-8946
+                </a>
               </li>
             </ul>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 pt-8 border-t border-primary-foreground/20 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          <p className="text-sm text-primary-foreground/60">
+        <div className="mt-8 pt-8 border-t border-primary-foreground/20 flex flex-col justify-center items-center">
+          <p className="text-sm text-primary-foreground/60 text-center">
             © {new Date().getFullYear()} President University. All rights reserved.
-          </p>
-          <p className="text-sm text-primary-foreground/60">
-            Made with ❤️ for the PU Community
           </p>
         </div>
       </div>

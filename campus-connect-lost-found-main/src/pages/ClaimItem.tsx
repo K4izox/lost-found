@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShieldCheck, User, Upload } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, User, Upload, Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { mockItems } from '@/lib/mock-data';
+import { fetchItems, createConversation, sendMessage } from '@/lib/api';
 import { categoryLabels, locationLabels } from '@/lib/types';
 import { format } from 'date-fns';
 
@@ -19,13 +20,60 @@ const ClaimItem = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const item = mockItems.find((i) => i.id === id);
+  const { data: allItems = [], isLoading } = useQuery({
+    queryKey: ['items'],
+    queryFn: fetchItems,
+  });
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [studentId, setStudentId] = useState('');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const chatMutation = useMutation({
+    mutationFn: createConversation,
+    onSuccess: (data) => {
+      // Conversation created, now let's send the message there
+      const messageBody = `[SYSTEM MESSAGE]: A claim verification has been submitted by ${name} (ID: ${studentId}).\n\nContact Email: ${email}\n\nEvidence/Details provided:\n"${description}"\n\nPlease reply to this chat to coordinate with the claimant.`;
+
+      sendMessageMutation.mutate({ conversationId: data.id, content: messageBody });
+    },
+    onError: (error: any) => {
+      setSubmitting(false);
+      toast({ title: 'Error', description: error.message || 'Failed to submit claim.', variant: 'destructive' });
+    }
+  });
+
+  const sendMessageMutation = useMutation({
+    mutationFn: sendMessage,
+    onSuccess: () => {
+      setSubmitting(false);
+      toast({
+        title: isLost ? 'Found Notice Sent!' : 'Claim Submitted!',
+        description: `Your information has been sent directly to the owner via Chat!`,
+      });
+      navigate(`/messages`);
+    },
+    onError: () => {
+      setSubmitting(false);
+      toast({ title: 'Error', description: 'Failed to send claim details.', variant: 'destructive' });
+    }
+  });
+
+  const item = allItems.find((i: any) => i.id === id);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!item) {
     return (
@@ -53,18 +101,16 @@ const ClaimItem = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!localStorage.getItem('token')) {
+      toast({ title: 'Authentication Required', description: 'You must be logged in to submit a claim.', variant: 'destructive' });
+      navigate('/login');
+      return;
+    }
+
     setSubmitting(true);
 
-    setTimeout(() => {
-      setSubmitting(false);
-      toast({
-        title: isLost ? 'Report Submitted!' : 'Claim Submitted!',
-        description: isLost
-          ? `Thank you! The owner of "${item.title}" will be notified.`
-          : `Your claim for "${item.title}" has been submitted. The finder will be notified.`,
-      });
-      navigate(`/item/${item.id}`);
-    }, 1200);
+    // We send a direct chat message to the owner containing the form data.
+    chatMutation.mutate({ itemId: item.id, receiverId: item.userId });
   };
 
   return (

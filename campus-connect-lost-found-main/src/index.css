@@ -136,3 +136,11 @@
     text-wrap: balance;
   }
 }
+
+/* Fix recharts accessibility outline (black box on click/hover) */
+.recharts-pie-sector:focus {
+  outline: none;
+}
+.recharts-bar-rectangle:focus {
+  outline: none;
+}

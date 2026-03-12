@@ -14,12 +14,15 @@ model User {
   password  String
   role      String   // 'student' | 'lecturer' | 'staff' | 'admin'
   avatar    String?
+  isBanned  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   items              Item[]
   messages           Message[]
+  notifications      Notification[]
   user1conversations Conversation[] @relation("User1Conversations")
   user2conversations Conversation[] @relation("User2Conversations")
+  reports            Report[]
 }
 
 model Item {
@@ -38,6 +41,7 @@ model Item {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   conversations  Conversation[]
+  reports        Report[]
 }
 
 model Conversation {
@@ -62,4 +66,28 @@ model Message {
   content        String
   read           Boolean      @default(false)
   createdAt      DateTime     @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info") // 'info', 'message', 'alert', 'success'
+  link      String?  // Optional link to navigate when clicked
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason      String   // 'spam' | 'inappropriate' | 'misleading' | 'duplicate' | 'scam' | 'other'
+  description String?  // Optional additional details
+  status      String   @default("pending") // 'pending' | 'reviewed' | 'dismissed'
+  createdAt   DateTime @default(now())
 }

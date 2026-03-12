@@ -13,8 +13,8 @@ export interface User {
 // Item Types
 export type ItemType = 'lost' | 'found';
 export type ItemStatus = 'active' | 'claimed' | 'resolved' | 'expired';
-export type ItemCategory = 'personal' | 'electronics' | 'academic' | 'miscellaneous';
-export type CampusLocation = 'academic' | 'food' | 'common' | 'dormitory';
+export type ItemCategory = 'personal' | 'electronics' | 'academic' | 'miscellaneous' | 'other';
+export type CampusLocation = 'academic' | 'food' | 'common' | 'dormitory' | 'other';
 
 export interface Item {
   id: string;
@@ -61,6 +61,7 @@ export const categoryLabels: Record<ItemCategory, string> = {
   electronics: 'Electronics',
   academic: 'Academic Items',
   miscellaneous: 'Miscellaneous',
+  other: 'Other (specify)',
 };
 
 export const locationLabels: Record<CampusLocation, string> = {
@@ -68,6 +69,7 @@ export const locationLabels: Record<CampusLocation, string> = {
   food: 'Food & Dining',
   common: 'Common Areas',
   dormitory: 'Dormitories',
+  other: 'Other (specify)',
 };
 
 export const statusLabels: Record<ItemStatus, string> = {
@@ -82,6 +84,7 @@ export const categoryIcons: Record<ItemCategory, string> = {
   electronics: 'Laptop',
   academic: 'BookOpen',
   miscellaneous: 'Package',
+  other: 'Package',
 };
 
 export const locationIcons: Record<CampusLocation, string> = {
@@ -89,4 +92,5 @@ export const locationIcons: Record<CampusLocation, string> = {
   food: 'UtensilsCrossed',
   common: 'Users',
   dormitory: 'Home',
+  other: 'MapPin',
 };

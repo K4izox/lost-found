@@ -7,6 +7,8 @@ import { fetchConversations, fetchMessages, sendMessage } from '@/lib/api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, User, MessageCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRef, useEffect } from 'react';
 
 const Messages = () => {
     const [activeUser] = useState(() => JSON.parse(localStorage.getItem('user') || '{}'));
@@ -35,6 +37,11 @@ const Messages = () => {
             queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
     });
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
@@ -110,24 +117,59 @@ const Messages = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                                <div className="flex-1 p-4 overflow-y-auto overflow-x-hidden space-y-4">
                                     {loadingMessages ? (
-                                        <div className="text-center text-muted-foreground">Loading messages...</div>
+                                        <div className="text-center text-muted-foreground mt-4">Loading messages...</div>
                                     ) : (
-                                        messages.map((msg: any) => {
-                                            const isMe = msg.senderId === activeUser.id;
-                                            return (
-                                                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                    <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${isMe ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted rounded-tl-sm'}`}>
-                                                        <p className="text-sm">{msg.content}</p>
-                                                        <span className={`text-[10px] block mt-1 ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                                                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )
-                                        })
+                                        <AnimatePresence initial={false}>
+                                            {messages.map((msg: any) => {
+                                                const isMe = msg.senderId === activeUser.id;
+                                                const isSystemMessage = msg.content.startsWith('[SYSTEM MESSAGE]:');
+
+                                                if (isSystemMessage) {
+                                                    const cleanContent = msg.content.replace('[SYSTEM MESSAGE]:', '').trim();
+                                                    return (
+                                                        <motion.div
+                                                            key={msg.id}
+                                                            className="flex justify-center my-4"
+                                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                            transition={{ duration: 0.3 }}
+                                                        >
+                                                            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-4 max-w-[85%] shadow-sm w-full mx-4">
+                                                                <div className="flex items-center space-x-2 mb-2">
+                                                                    <MessageCircle className="h-4 w-4 text-amber-600" />
+                                                                    <span className="font-semibold text-sm text-amber-800">System Verification Notice</span>
+                                                                </div>
+                                                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{cleanContent}</p>
+                                                                <span className="text-[10px] block mt-3 text-amber-600/70 text-right">
+                                                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                            </div>
+                                                        </motion.div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <motion.div
+                                                        key={msg.id}
+                                                        className={`flex ${isMe ? 'justify-end' : 'justify-start'} mx-2`}
+                                                        initial={{ opacity: 0, scale: 0.9, x: isMe ? 20 : -20 }}
+                                                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                                                        transition={{ duration: 0.25, type: "spring", stiffness: 260, damping: 20 }}
+                                                    >
+                                                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 shadow-sm ${isMe ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted border border-border/50 rounded-tl-sm'}`}>
+                                                            <p className="text-[15px] whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                                            <span className={`text-[10px] block mt-1 text-right ${isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                                                                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    </motion.div>
+                                                )
+                                            })}
+                                        </AnimatePresence>
                                     )}
+                                    <div ref={messagesEndRef} />
                                 </div>
 
                                 <div className="p-4 border-t bg-background">

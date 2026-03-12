@@ -8,74 +8,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, CheckCircle, MessageSquare, Package, AlertTriangle, Clock, Check } from 'lucide-react';
 import { useState } from 'react';
 
+import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+
 interface Notification {
   id: string;
-  type: 'claim' | 'message' | 'match' | 'status' | 'system';
+  type: string;
   title: string;
-  description: string;
-  itemId?: string;
-  read: boolean;
-  createdAt: Date;
+  message: string;
+  link?: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'claim',
-    title: 'New Claim on Your Item',
-    description: 'Someone has claimed your "Apple AirPods Pro" listing. Review the claim details.',
-    itemId: '2',
-    read: false,
-    createdAt: new Date('2024-01-26T10:00:00'),
-  },
-  {
-    id: '2',
-    type: 'message',
-    title: 'New Message Received',
-    description: 'Siti Nurhaliza sent you a message about "Apple AirPods Pro".',
-    itemId: '2',
-    read: false,
-    createdAt: new Date('2024-01-25T14:30:00'),
-  },
-  {
-    id: '3',
-    type: 'match',
-    title: 'Potential Match Found',
-    description: 'A found item matching your lost "Black Leather Wallet" has been reported.',
-    itemId: '1',
-    read: true,
-    createdAt: new Date('2024-01-24T09:00:00'),
-  },
-  {
-    id: '4',
-    type: 'status',
-    title: 'Item Status Updated',
-    description: 'Your "Student ID Card" listing has been marked as claimed.',
-    itemId: '4',
-    read: true,
-    createdAt: new Date('2024-01-23T16:00:00'),
-  },
-  {
-    id: '5',
-    type: 'system',
-    title: 'Welcome to Lost & Found',
-    description: 'Thank you for joining the President University Lost & Found platform!',
-    read: true,
-    createdAt: new Date('2024-01-15T08:00:00'),
-  },
-];
-
-const typeIcon = (type: Notification['type']) => {
+const typeIcon = (type: string) => {
   switch (type) {
     case 'claim': return <Package className="h-5 w-5 text-primary" />;
     case 'message': return <MessageSquare className="h-5 w-5 text-primary" />;
     case 'match': return <CheckCircle className="h-5 w-5 text-accent-foreground" />;
     case 'status': return <AlertTriangle className="h-5 w-5 text-destructive" />;
-    case 'system': return <Bell className="h-5 w-5 text-muted-foreground" />;
+    case 'system':
+    default:
+      return <Bell className="h-5 w-5 text-muted-foreground" />;
   }
 };
 
-const timeAgo = (date: Date) => {
+const timeAgo = (dateStr: string) => {
+  const date = new Date(dateStr);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const minutes = Math.floor(diff / 60000);
@@ -87,28 +47,55 @@ const timeAgo = (date: Date) => {
 };
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { data: notifications = [], isLoading } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: fetchNotifications,
+  });
 
-  const markAllRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+    }
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: markAllNotificationsAsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+    }
+  });
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const handleMarkAllRead = () => {
+    markAllReadMutation.mutate();
   };
 
-  const markRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.isRead) {
+      markReadMutation.mutate(notification.id);
+    }
+    if (notification.link) {
+      navigate(notification.link);
+    }
   };
 
   const filterNotifications = (tab: string) => {
     if (tab === 'all') return notifications;
-    if (tab === 'unread') return notifications.filter(n => !n.read);
+    if (tab === 'unread') return notifications.filter(n => !n.isRead);
     return notifications.filter(n => n.type === tab);
   };
 
   const NotificationItem = ({ notification }: { notification: Notification }) => (
     <Card
-      className={`cursor-pointer transition-colors hover:bg-muted/50 ${!notification.read ? 'border-l-4 border-l-primary bg-primary/5' : ''}`}
-      onClick={() => markRead(notification.id)}
+      className={`cursor-pointer transition-colors hover:bg-muted/50 ${!notification.isRead ? 'border-l-4 border-l-primary bg-primary/5' : ''}`}
+      onClick={() => handleNotificationClick(notification)}
     >
       <CardContent className="flex items-start gap-4 p-4">
         <div className="mt-0.5">{typeIcon(notification.type)}</div>
@@ -120,18 +107,9 @@ const Notifications = () => {
               {timeAgo(notification.createdAt)}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">{notification.description}</p>
-          {notification.itemId && (
-            <Link
-              to={`/item/${notification.itemId}`}
-              className="text-xs text-primary hover:underline mt-2 inline-block"
-              onClick={(e) => e.stopPropagation()}
-            >
-              View Item →
-            </Link>
-          )}
+          <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
         </div>
-        {!notification.read && (
+        {!notification.isRead && (
           <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
         )}
       </CardContent>
@@ -153,7 +131,7 @@ const Notifications = () => {
               )}
             </div>
             {unreadCount > 0 && (
-              <Button variant="outline" size="sm" onClick={markAllRead}>
+              <Button variant="outline" size="sm" onClick={handleMarkAllRead} disabled={markAllReadMutation.isPending}>
                 <Check className="h-4 w-4 mr-1" />
                 Mark all read
               </Button>
@@ -170,13 +148,17 @@ const Notifications = () => {
 
             {['all', 'unread', 'message', 'claim'].map(tab => (
               <TabsContent key={tab} value={tab} className="space-y-3">
-                {filterNotifications(tab).length === 0 ? (
+                {isLoading ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>Loading notifications...</p>
+                  </div>
+                ) : filterNotifications(tab).length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Bell className="h-10 w-10 mx-auto mb-3 opacity-40" />
                     <p>No notifications here</p>
                   </div>
                 ) : (
-                  filterNotifications(tab).map(n => (
+                  filterNotifications(tab).map((n: Notification) => (
                     <NotificationItem key={n.id} notification={n} />
                   ))
                 )}

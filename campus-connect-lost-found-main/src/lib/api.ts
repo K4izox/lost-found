@@ -105,6 +105,29 @@ export const loginUser = async (data: any) => {
     return result;
 };
 
+// --- PROFILE API ---
+export const fetchProfile = async () => {
+    const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        headers: getAuthHeaders(),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to fetch profile');
+    return result;
+};
+
+export const updateProfile = async (formData: FormData) => {
+    const response = await fetch(`${API_BASE_URL}/users/profile`, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to update profile');
+    return result;
+};
+
 // --- CHAT API ---
 
 const getAuthHeaders = () => {
@@ -150,5 +173,64 @@ export const sendMessage = async (data: { conversationId: string; content: strin
         body: JSON.stringify({ content: data.content }),
     });
     if (!response.ok) throw new Error('Failed to send message');
+    return response.json();
+};
+
+export const fetchUnreadCount = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return { count: 0 };
+
+    // Fail gracefully if not logged in
+    try {
+        const response = await fetch(`${API_BASE_URL}/messages/unread-count`, {
+            headers: getAuthHeaders(),
+        });
+        if (!response.ok) return { count: 0 };
+        return response.json();
+    } catch {
+        return { count: 0 };
+    }
+};
+
+// --- NOTIFICATIONS API ---
+
+export const fetchNotifications = async () => {
+    const response = await fetch(`${API_BASE_URL}/notifications`, {
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch notifications');
+    return response.json();
+};
+
+export const fetchUnreadNotificationsCount = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return { count: 0 };
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/notifications/unread-count`, {
+            headers: getAuthHeaders(),
+        });
+        if (!response.ok) return { count: 0 };
+        return response.json();
+    } catch {
+        return { count: 0 };
+    }
+};
+
+export const markNotificationAsRead = async (id: string) => {
+    const response = await fetch(`${API_BASE_URL}/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to mark notification as read');
+    return response.json();
+};
+
+export const markAllNotificationsAsRead = async () => {
+    const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to mark all notifications as read');
     return response.json();
 };

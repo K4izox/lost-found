@@ -5,7 +5,7 @@ import { registerUser } from '@/lib/api';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eye, EyeOff, Search, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Search, ArrowLeft, Package, MessageCircle, BellRing } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,11 +17,7 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z
     .string()
-    .email('Please enter a valid email address')
-    .refine(
-      (email) => email.endsWith('@president.ac.id') || email.endsWith('@student.president.ac.id'),
-      'Please use your President University email (@president.ac.id or @student.president.ac.id)'
-    ),
+    .email('Please enter a valid email address'),
   role: z.enum(['student', 'lecturer', 'staff'], {
     required_error: 'Please select your role',
   }),
@@ -34,7 +30,17 @@ const registerSchema = z.object({
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
-});
+}).refine((data) => {
+  if (data.role === 'student') {
+    return data.email.endsWith('@student.president.ac.id');
+  }
+  return data.email.endsWith('@president.ac.id');
+}, (data) => ({
+  message: data.role === 'student'
+    ? 'Mahasiswa harus menggunakan email @student.president.ac.id'
+    : 'Dosen/Staff harus menggunakan email @president.ac.id',
+  path: ['email'],
+}));
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
@@ -42,6 +48,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('student');
   const { toast } = useToast();
 
   const navigate = useNavigate();
@@ -101,22 +108,45 @@ const Register = () => {
             Create an account to report lost items, find your belongings,
             and help others in the President University community.
           </p>
-          <div className="grid grid-cols-2 gap-4 pt-6 text-left">
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <div className="font-semibold mb-1">📦 Report Items</div>
-              <div className="text-sm text-primary-foreground/70">Easily report lost or found items</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 text-left">
+            <div className="bg-primary-foreground/5 hover:bg-primary-foreground/10 border border-primary-foreground/10 rounded-xl p-5 transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="p-2 bg-blue-500/20 rounded-lg text-blue-300">
+                  <Package className="h-5 w-5" />
+                </div>
+                <div className="font-semibold text-primary-foreground">Report Items</div>
+              </div>
+              <div className="text-sm text-primary-foreground/70 leading-relaxed">Easily report lost or found items with photos</div>
             </div>
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <div className="font-semibold mb-1">🔍 Smart Search</div>
-              <div className="text-sm text-primary-foreground/70">Find items with powerful filters</div>
+
+            <div className="bg-primary-foreground/5 hover:bg-primary-foreground/10 border border-primary-foreground/10 rounded-xl p-5 transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="p-2 bg-purple-500/20 rounded-lg text-purple-300">
+                  <Search className="h-5 w-5" />
+                </div>
+                <div className="font-semibold text-primary-foreground">Smart Search</div>
+              </div>
+              <div className="text-sm text-primary-foreground/70 leading-relaxed">Find items effortlessly with powerful filters</div>
             </div>
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <div className="font-semibold mb-1">💬 Secure Chat</div>
-              <div className="text-sm text-primary-foreground/70">Connect safely with finders</div>
+
+            <div className="bg-primary-foreground/5 hover:bg-primary-foreground/10 border border-primary-foreground/10 rounded-xl p-5 transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="p-2 bg-green-500/20 rounded-lg text-green-300">
+                  <MessageCircle className="h-5 w-5" />
+                </div>
+                <div className="font-semibold text-primary-foreground">Secure Chat</div>
+              </div>
+              <div className="text-sm text-primary-foreground/70 leading-relaxed">Connect safely and privately with finders</div>
             </div>
-            <div className="bg-primary-foreground/10 rounded-lg p-4">
-              <div className="font-semibold mb-1">🔔 Notifications</div>
-              <div className="text-sm text-primary-foreground/70">Get alerts when items match</div>
+
+            <div className="bg-primary-foreground/5 hover:bg-primary-foreground/10 border border-primary-foreground/10 rounded-xl p-5 transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className="p-2 bg-orange-500/20 rounded-lg text-orange-300">
+                  <BellRing className="h-5 w-5" />
+                </div>
+                <div className="font-semibold text-primary-foreground">Notifications</div>
+              </div>
+              <div className="text-sm text-primary-foreground/70 leading-relaxed">Get instant alerts when items match yours</div>
             </div>
           </div>
         </div>
@@ -172,7 +202,10 @@ const Register = () => {
                         <FormControl>
                           <Input
                             type="email"
-                            placeholder="your.name@student.president.ac.id"
+                            placeholder={selectedRole === 'student'
+                              ? 'nama@student.president.ac.id'
+                              : 'nama@president.ac.id'
+                            }
                             {...field}
                           />
                         </FormControl>
@@ -187,7 +220,7 @@ const Register = () => {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Role</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={(val) => { field.onChange(val); setSelectedRole(val); }} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select your role" />

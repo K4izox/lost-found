@@ -22,7 +22,9 @@ const ReportFound = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<ItemCategory | ''>('');
+  const [categoryOther, setCategoryOther] = useState('');
   const [location, setLocation] = useState<CampusLocation | ''>('');
+  const [locationOther, setLocationOther] = useState('');
   const [locationDetail, setLocationDetail] = useState('');
   const [date, setDate] = useState('');
   const [handedOver, setHandedOver] = useState('');
@@ -64,9 +66,9 @@ const ReportFound = () => {
     formData.append('type', 'found');
     formData.append('title', title);
     formData.append('description', fullDescription);
-    formData.append('category', category);
+    formData.append('category', category === 'other' ? `other:${categoryOther}` : category);
     formData.append('location', location);
-    formData.append('locationDetail', locationDetail);
+    formData.append('locationDetail', location === 'other' ? locationOther : locationDetail);
     formData.append('date', date);
 
     // Append each image
@@ -116,7 +118,7 @@ const ReportFound = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select value={category} onValueChange={(v) => setCategory(v as ItemCategory)} required>
+                <Select value={category} onValueChange={(v) => { setCategory(v as ItemCategory); setCategoryOther(''); }} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -126,6 +128,16 @@ const ReportFound = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {category === 'other' && (
+                  <Input
+                    placeholder="Describe the category..."
+                    value={categoryOther}
+                    onChange={(e) => setCategoryOther(e.target.value)}
+                    required
+                    maxLength={80}
+                    className="mt-2"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Date Found</Label>
@@ -146,7 +158,7 @@ const ReportFound = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Campus Area</Label>
-                <Select value={location} onValueChange={(v) => setLocation(v as CampusLocation)} required>
+                <Select value={location} onValueChange={(v) => { setLocation(v as CampusLocation); setLocationOther(''); }} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select area" />
                   </SelectTrigger>
@@ -156,15 +168,25 @@ const ReportFound = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {location === 'other' && (
+                  <Input
+                    placeholder="Describe your location..."
+                    value={locationOther}
+                    onChange={(e) => setLocationOther(e.target.value)}
+                    required
+                    maxLength={120}
+                    className="mt-2"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="locationDetail">Specific Location</Label>
                 <Input
                   id="locationDetail"
-                  placeholder="e.g. Library Main Entrance"
+                  placeholder={location === 'other' ? 'e.g. Room number, floor...' : 'e.g. Library Main Entrance'}
                   value={locationDetail}
                   onChange={(e) => setLocationDetail(e.target.value)}
-                  required
+                  required={location !== 'other'}
                   maxLength={200}
                 />
               </div>

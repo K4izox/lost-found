@@ -14,7 +14,8 @@ import Footer from '@/components/Footer';
 import ItemCard from '@/components/ItemCard';
 import { useQuery } from '@tanstack/react-query';
 import { fetchItems } from '@/lib/api';
-import { mockItems } from '@/lib/mock-data';
+import { Skeleton } from '@/components/ui/skeleton';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ItemType, ItemCategory, CampusLocation, categoryLabels, locationLabels, Item } from '@/lib/types';
 
 const Browse = () => {
@@ -176,23 +177,27 @@ const Browse = () => {
       <Header />
 
       <main className="flex-1 bg-secondary">
-        {/* Search Bar Section */}
-        <div className="bg-background border-b py-6">
+        {/* Hero Search Section */}
+        <div className="bg-gradient-to-br from-primary/10 via-background to-background border-b py-10">
           <div className="container">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold text-foreground tracking-tight">Browse Items</h1>
+              <p className="text-muted-foreground mt-1 text-sm">Search through all lost & found reports on campus</p>
+            </div>
+            <div className="flex flex-col md:flex-row gap-3 max-w-2xl mx-auto">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search for items..."
+                  placeholder="Search by title or description..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-11"
+                  className="pl-10 h-11 rounded-xl border-border/60 bg-background/80 backdrop-blur-sm shadow-sm"
                 />
               </div>
               <div className="flex gap-2">
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[160px] h-11">
+                  <SelectTrigger className="w-[160px] h-11 rounded-xl">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
                   <SelectContent>
@@ -204,7 +209,7 @@ const Browse = () => {
                 {/* Mobile Filter Button */}
                 <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                   <SheetTrigger asChild>
-                    <Button variant="outline" className="lg:hidden h-11 relative">
+                    <Button variant="outline" className="lg:hidden h-11 rounded-xl relative">
                       <SlidersHorizontal className="h-4 w-4 mr-2" />
                       Filters
                       {activeFiltersCount > 0 && (
@@ -226,31 +231,25 @@ const Browse = () => {
               </div>
             </div>
 
-            {/* Active Filters Tags */}
+            {/* Active Filter Tags */}
             {activeFiltersCount > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4 justify-center">
                 {selectedTypes.map((type) => (
-                  <Badge key={type} variant="secondary" className="capitalize">
+                  <Badge key={type} variant="secondary" className="capitalize rounded-full">
                     {type}
-                    <button onClick={() => toggleType(type)} className="ml-1">
-                      <X className="h-3 w-3" />
-                    </button>
+                    <button onClick={() => toggleType(type)} className="ml-1"><X className="h-3 w-3" /></button>
                   </Badge>
                 ))}
                 {selectedCategories.map((category) => (
-                  <Badge key={category} variant="secondary">
+                  <Badge key={category} variant="secondary" className="rounded-full">
                     {categoryLabels[category]}
-                    <button onClick={() => toggleCategory(category)} className="ml-1">
-                      <X className="h-3 w-3" />
-                    </button>
+                    <button onClick={() => toggleCategory(category)} className="ml-1"><X className="h-3 w-3" /></button>
                   </Badge>
                 ))}
                 {selectedLocations.map((location) => (
-                  <Badge key={location} variant="secondary">
+                  <Badge key={location} variant="secondary" className="rounded-full">
                     {locationLabels[location]}
-                    <button onClick={() => toggleLocation(location)} className="ml-1">
-                      <X className="h-3 w-3" />
-                    </button>
+                    <button onClick={() => toggleLocation(location)} className="ml-1"><X className="h-3 w-3" /></button>
                   </Badge>
                 ))}
               </div>
@@ -279,25 +278,50 @@ const Browse = () => {
                 </p>
               </div>
 
-              {filteredItems.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filteredItems.map((item) => (
-                    <ItemCard key={item.id} item={item} />
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="flex flex-col space-y-3 bg-card p-4 rounded-xl border object-cover">
+                      <Skeleton className="h-[200px] w-full rounded-xl bg-muted/60" />
+                      <div className="space-y-2 mt-4">
+                        <Skeleton className="h-5 w-[80%] bg-muted/60" />
+                        <Skeleton className="h-4 w-[60%] bg-muted/60" />
+                        <Skeleton className="h-8 w-full mt-4 bg-muted/60" />
+                      </div>
+                    </div>
                   ))}
                 </div>
+              ) : filteredItems.length > 0 ? (
+                <motion.div
+                  className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5"
+                  layout
+                >
+                  <AnimatePresence mode='popLayout'>
+                    {filteredItems.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ItemCard item={item} />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
               ) : (
-                <Card className="py-16 text-center">
-                  <CardContent>
-                    <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No items found</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Try adjusting your search or filters to find what you're looking for.
-                    </p>
-                    <Button variant="outline" onClick={clearFilters}>
-                      Clear All Filters
-                    </Button>
-                  </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="text-6xl mb-4">🔎</div>
+                  <h3 className="text-xl font-semibold mb-2">No items found</h3>
+                  <p className="text-muted-foreground text-sm mb-6 max-w-sm">
+                    Try adjusting your search or filters to find what you're looking for.
+                  </p>
+                  <Button variant="outline" onClick={clearFilters} className="rounded-full px-6">
+                    Clear All Filters
+                  </Button>
+                </div>
               )}
             </div>
           </div>
