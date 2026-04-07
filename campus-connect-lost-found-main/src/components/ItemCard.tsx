@@ -89,28 +89,28 @@ const ItemCard = ({ item }: ItemCardProps) => {
             </p>
 
             {/* Meta row */}
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t pt-3">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t pt-3 w-full">
+              <div className="flex items-center gap-2 overflow-hidden flex-1">
+                <span className="flex items-center gap-1 flex-shrink-0">
                   <MapPin className="h-3 w-3 flex-shrink-0" />
-                  <span className="truncate max-w-[90px]">{displayLocation(item.location, item.locationDetail)}</span>
+                  <span className="truncate max-w-[70px]">{displayLocation(item.location, item.locationDetail)}</span>
                 </span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 overflow-hidden">
                   <Calendar className="h-3 w-3 flex-shrink-0" />
-                  <span>{formatDistanceToNow(item.date, { addSuffix: true })}</span>
+                  <span className="truncate whitespace-nowrap">{formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}</span>
                 </span>
               </div>
 
               {/* Avatar */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div className="h-5 w-5 rounded-full bg-muted overflow-hidden ring-1 ring-border">
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                <div className="h-5 w-5 rounded-full bg-muted overflow-hidden ring-1 border shadow-sm">
                   {item.userAvatar ? (
                     <img src={item.userAvatar} alt={item.userName} className="h-full w-full object-cover" />
                   ) : (
                     <User className="h-full w-full p-0.5 text-muted-foreground" />
                   )}
                 </div>
-                <span className="truncate max-w-[70px] text-[11px]">{item.userName}</span>
+                <span className="truncate max-w-[60px] text-[11px]">{item.userName}</span>
               </div>
             </div>
           </div>

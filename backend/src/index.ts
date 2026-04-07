@@ -10,6 +10,9 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import xss from 'xss';
 import Groq from 'groq-sdk';
+import fs from 'fs';
+import { sendNotificationEmail } from './lib/email';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -38,7 +41,7 @@ app.use(sanitizeInput);
 
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 3000, // Increased for development
     message: { error: 'Terlalu banyak permintaan dari IP Anda, silakan coba lagi setelah 15 menit.' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -47,12 +50,16 @@ app.use('/api', generalLimiter);
 
 const authLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    max: 15,
+    max: 1000, // Temporarily increased from 15 to allow retry
     message: { error: 'Terlalu banyak percobaan masuk/daftar. Silakan coba lagi dalam 1 jam.' },
 });
 app.use('/api/auth', authLimiter);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+if (!fs.existsSync('uploads')) {
+    fs.mkdirSync('uploads');
+}
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -147,6 +154,72 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, avatar: user.avatar } });
     } catch (error) {
         res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+app.post('/api/auth/forgot-password', async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { email } = req.body;
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            // For security, don't reveal if user exists, but here we can be helpful
+            return res.json({ message: 'Jika email terdaftar, instruksi pemulihan akan dikirim.' });
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiry = new Date(Date.now() + 3600000); // 1 hour
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { resetToken: token, resetTokenExpiry: expiry }
+        });
+
+        const resetLink = `/reset-password?token=${token}`;
+        await sendNotificationEmail(
+            user.email,
+            user.name,
+            'Reset Kata Sandi Anda',
+            'Anda menerima email ini karena ada permintaan untuk mengatur ulang kata sandi akun Anda. Klik tombol di bawah ini untuk melanjutkan.',
+            resetLink
+        );
+
+        res.json({ message: 'Instruksi pemulihan telah dikirim ke email Anda.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Gagal memproses permintaan lupa password' });
+    }
+});
+
+app.post('/api/auth/reset-password', async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { token, password } = req.body;
+
+        const user = await prisma.user.findFirst({
+            where: {
+                resetToken: token,
+                resetTokenExpiry: { gt: new Date() }
+            }
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Token tidak valid atau sudah kedaluwarsa.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+                resetToken: null,
+                resetTokenExpiry: null
+            }
+        });
+
+        res.json({ message: 'Kata sandi Anda telah berhasil diperbarui.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Gagal memperbarui kata sandi' });
     }
 });
 
@@ -251,6 +324,53 @@ app.patch('/api/items/:id/status', authenticateToken, async (req: Request, res: 
             where: { id: itemId },
             data: { status }
         });
+        
+        // Notify conversation participants when status changes
+        // Especially useful for 'claimed' or 'resolved'
+        try {
+            const conversations = await prisma.conversation.findMany({
+                where: { itemId }
+            });
+            
+            // Get all unique users involved, excluding the one making the change
+            const usersToNotify = new Set<string>();
+            conversations.forEach(c => {
+                if (c.user1Id !== userId) usersToNotify.add(c.user1Id);
+                if (c.user2Id !== userId) usersToNotify.add(c.user2Id);
+            });
+            
+            if (usersToNotify.size > 0) {
+                const notificationsData = Array.from(usersToNotify).map(targetId => ({
+                    userId: targetId,
+                    title: `Perubahan Status Barang`,
+                    message: `Status barang "${item.title}" yang kamu diskusikan telah diubah menjadi: ${status.toUpperCase()}.`,
+                    type: "status",
+                    link: `/item/${item.id}`
+                }));
+                
+                await prisma.notification.createMany({
+                    data: notificationsData
+                });
+
+                // Send email notifications asynchronously to all involved users
+                (async () => {
+                   const usersInvolved = await prisma.user.findMany({
+                       where: { id: { in: Array.from(usersToNotify) } }
+                   });
+                   for (const user of usersInvolved) {
+                       await sendNotificationEmail(
+                           user.email,
+                           user.name,
+                           `Status Change: ${item.title}`,
+                           `The item status for "${item.title}" that you are discussing has been changed to: ${status.toUpperCase()}.`,
+                           `/item/${item.id}`
+                       );
+                   }
+                })();
+            }
+        } catch (notifError) {
+            console.error("Failed to spawn status notifications", notifError);
+        }
 
         res.json(updatedItem);
     } catch (error) {
@@ -284,6 +404,59 @@ app.post('/api/items', authenticateToken, upload.array('images', 5), async (req:
             }
         });
 
+        // Notify all users about the new lost/found item
+        (async () => {
+            try {
+                // Fetch all users EXCLUDING the reporter
+                const users = await prisma.user.findMany({
+                    where: { id: { not: userId } },
+                    select: { id: true, email: true, name: true }
+                });
+
+                if (users.length > 0) {
+                    // 1. Create in-app notifications for all users
+                    const notificationsData = users.map(user => ({
+                        userId: user.id,
+                        title: `New Item ${type === 'lost' ? 'Lost' : 'Found'}: ${title}`,
+                        message: `Someone just reported a ${type} item: "${title}". Check if it belongs to you!`,
+                        type: type === 'lost' ? 'lost' : 'found',
+                        link: `/item/${newItem.id}`
+                    }));
+
+                    await prisma.notification.createMany({
+                        data: notificationsData
+                    });
+
+                    // 2. Send broadcast emails to all users (with a slight delay to avoid rate limits)
+                    for (const user of users) {
+                        await sendNotificationEmail(
+                            user.email,
+                            user.name,
+                            `New Item Reported: ${title}`,
+                            `Hi, someone has reported a newly ${type === 'lost' ? 'lost' : 'found'} item on Campus Connect: "${title}". Click below to see the details.`,
+                            `/item/${newItem.id}`
+                        );
+                        // Optional sleep to avoid Gmail rate limits:
+                        // await new Promise(resolve => setTimeout(resolve, 100)); 
+                    }
+                }
+
+                // 3. Send confirmation email to the reporter
+                const reporter = await prisma.user.findUnique({ where: { id: userId } });
+                if (reporter) {
+                    await sendNotificationEmail(
+                        reporter.email,
+                        reporter.name,
+                        `Report Confirmation: ${title}`,
+                        `Your item report "${title}" has been successfully posted to Campus Connect! We have notified the entire campus.`,
+                        `/item/${newItem.id}`
+                    );
+                }
+            } catch (asyncError) {
+                console.error("Error in broadcast notifications:", asyncError);
+            }
+        })();
+
         res.status(201).json(newItem);
     } catch (error) {
         console.error(error);
@@ -296,8 +469,8 @@ app.post('/api/ai/chat', async (req: Request, res: Response) => {
         const { message, history } = req.body;
         const apiKey = process.env.GROQ_API_KEY || '';
 
-        if (!apiKey) {
-            return res.json({ response: "Hello! I am the Campus Connect AI Assistant. Unfortunately, the Groq API key has not been configured by the development team. Please add GROQ_API_KEY in the backend .env file." });
+        if (!apiKey || apiKey === "your_groq_api_key_here") {
+            return res.json({ response: "Hello! API Key saya masih berupa bawaan ('your_groq_api_key_here'). Silakan daftarkan kunci asli Anda di situs Groq Cloud dan ubah di dalam file .env agar saya bisa berbicara dengan Anda! 😊" });
         }
 
         const groq = new Groq({ apiKey });
@@ -307,16 +480,16 @@ app.post('/api/ai/chat', async (req: Request, res: Response) => {
             select: { id: true, title: true, description: true, type: true, category: true, location: true, date: true, status: true }
         });
 
-        const systemInstruction = `You are a Smart Assistant (Campus Connect AI) who is friendly, cool, and highly helpful, specifically for President University students.
+        const systemInstruction = `You are a Smart Assistant (Lost & Found AI) who is friendly, cool, and highly helpful, specifically for President University students.
 Your main tasks are TWO:
-1. Act as a "Tour Guide" or Help Guide if a user is confused about how to use the Campus Connect website.
+1. Act as a "Tour Guide" or Help Guide if a user is confused about how to use the Lost & Found website.
 2. Match lost/found item reports with data in the database.
 
 Here is the list of ALL items in the database along with their status and type:
 ${JSON.stringify(items, null, 2)}
 
 Main rules:
-1. VERY IMPORTANT: You MUST ONLY discuss topics related to lost/found items at President University, OR how to use this website. If a user asks about unrelated topics (like web coding, math, recipes, etc.), POLITELY DECLINE and say "Sorry, I only know about the Campus Connect application. Are you looking for a specific item or need help using the app?"
+1. VERY IMPORTANT: You MUST ONLY discuss topics related to lost/found items at President University, OR how to use this website. If a user asks about unrelated topics (like web coding, math, recipes, etc.), POLITELY DECLINE and say "Sorry, I only know about the Lost & Found web. Are you looking for a specific item or need help using the web?"
 2. Answer in relaxed, friendly English suitable for college students (feel free to use emojis).
 3. If a user asks for website guidance (e.g., "how do I claim?", "where do I report an item?"), explain the steps in a friendly manner (e.g., you can click 'report' at the top, or go to the Browse Items menu, etc.).
 4. Very Important! Pay attention to the "type" column on items:
@@ -359,9 +532,13 @@ Main rules:
         const responseText = chatCompletion.choices[0]?.message?.content || "Maaf, saya tidak dapat merespons saat ini.";
 
         res.json({ response: responseText });
-    } catch (error) {
+    } catch (error: any) {
         console.error("AI Error:", error);
-        res.status(500).json({ error: 'Gagal menghubungi AI Assistant.' });
+        if (error.message && error.message.includes('Prisma')) {
+            res.status(500).json({ error: 'Database sedang offline! Harap nyalakan server PostgreSQL Anda pada komputer ini agar AI dapat membaca data barang hilang.' });
+        } else {
+            res.status(500).json({ error: 'Gagal menghubungi AI Assistant.' });
+        }
     }
 });
 
@@ -554,15 +731,58 @@ app.post('/api/conversations/:id/messages', authenticateToken, async (req: Reque
         });
 
         const receiverId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
-        await prisma.notification.create({
-            data: {
-                userId: receiverId,
-                title: "Pesan Baru",
-                message: `${message.sender.name} mengirim pesan kepadamu`,
-                type: "message",
-                link: `/messages`
-            }
-        });
+        
+        const isSystemClaim = typeof content === 'string' && content.includes('[SYSTEM MESSAGE]: A claim verification');
+        
+        if (isSystemClaim) {
+            await prisma.notification.create({
+                data: {
+                    userId: receiverId,
+                    title: "Klaim Barang Masuk",
+                    message: `${message.sender.name} telah mengirimkan pengajuan klaim/verifikasi. Cek Pesan Anda!`,
+                    type: "claim",
+                    link: `/messages`
+                }
+            });
+
+            // Send email notification asynchronously
+            (async () => {
+                const receiver = await prisma.user.findUnique({ where: { id: receiverId } });
+                if (receiver) {
+                    await sendNotificationEmail(
+                        receiver.email,
+                        receiver.name,
+                        `Pengajuan Klaim: ${message.sender.name}`,
+                        `${message.sender.name} has contacted you about your item. Please check your messages in Campus Connect to respond.`,
+                        `/messages`
+                    );
+                }
+            })();
+        } else {
+            await prisma.notification.create({
+                data: {
+                    userId: receiverId,
+                    title: "Pesan Baru",
+                    message: `${message.sender.name} mengirim pesan kepadamu`,
+                    type: "message",
+                    link: `/messages`
+                }
+            });
+
+            // Send email notification asynchronously
+            (async () => {
+                const receiver = await prisma.user.findUnique({ where: { id: receiverId } });
+                if (receiver) {
+                    await sendNotificationEmail(
+                        receiver.email,
+                        receiver.name,
+                        `New Message from ${message.sender.name}`,
+                        `You have received a new message from ${message.sender.name}. You can reply to it in the messages section.`,
+                        `/messages`
+                    );
+                }
+            })();
+        }
 
         res.status(201).json({
             id: message.id,
@@ -647,9 +867,13 @@ app.delete('/api/items/:id', authenticateToken, async (req: Request, res: Respon
             return res.status(403).json({ error: 'Only the creator or admin can delete this item' });
         }
 
+        // Delete associations that don't have Cascade delete
+        await prisma.conversation.deleteMany({ where: { itemId } });
+
         await prisma.item.delete({ where: { id: itemId } });
         res.json({ success: true, message: 'Item deleted successfully' });
     } catch (error) {
+        console.error("Delete Item Error:", error);
         res.status(500).json({ error: 'Failed to delete item' });
     }
 });
@@ -703,8 +927,10 @@ app.patch('/api/admin/users/:id/unban', authenticateToken, requireAdmin, async (
 
 app.post('/api/admin/broadcast', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
     try {
-        const { title, message } = req.body;
-        const users = await prisma.user.findMany({ select: { id: true } });
+        const { title, message, sendEmail } = req.body;
+        const users = await prisma.user.findMany({ select: { id: true, email: true, name: true } });
+        
+        // In-app notifications
         await prisma.notification.createMany({
             data: users.map(u => ({
                 userId: u.id,
@@ -714,6 +940,22 @@ app.post('/api/admin/broadcast', authenticateToken, requireAdmin, async (req: Re
                 isRead: false,
             }))
         });
+
+        // Optional email broadcast
+        if (sendEmail) {
+            // Run in background
+            (async () => {
+                for (const user of users) {
+                    await sendNotificationEmail(
+                        user.email,
+                        user.name,
+                        `Broadcast: ${title}`,
+                        message
+                    );
+                }
+            })();
+        }
+
         res.json({ success: true, sent: users.length });
     } catch (error) {
         res.status(500).json({ error: 'Failed to broadcast notification' });

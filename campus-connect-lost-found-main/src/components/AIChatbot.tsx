@@ -73,7 +73,7 @@ const AIChatbot = () => {
         if (isOpen && messages.length === 0) {
             const greeting = userProfile?.name
                 ? `Hi ${userProfile.name.split(' ')[0]} 🤖! Did you lose something today at campus?\nI can help you check if a lost or found item is already registered in the system.`
-                : "Hello! I'm the Campus Connect AI 🤖\nI can help you check if a lost or found item is already registered in the system. What are you looking for?";
+                : "Hello! I'm the Lost & Found AI 🤖\nI can help you check if a lost or found item is already registered in the system. What are you looking for?";
 
             setMessages([{
                 role: 'model',
@@ -171,7 +171,7 @@ const AIChatbot = () => {
             <CardHeader className="p-4 border-b bg-primary text-primary-foreground rounded-t-xl flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base flex items-center gap-2">
                     <Bot className="h-5 w-5" />
-                    Campus Connect AI
+                    Lost & Found AI
                 </CardTitle>
                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 text-primary-foreground hover:bg-primary/20 hover:text-white">
                     <X className="h-4 w-4" />

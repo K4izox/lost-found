@@ -11,8 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Package, Users, CheckCircle, Clock, Trash2, Shield,
     FileDown, Activity, Search, Ban, UserCheck, Megaphone,
-    BarChart3, Send, X, Flag, Check
+    BarChart3, Send, X, Flag, Check, Mail
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     PieChart, Pie, Cell, ResponsiveContainer
@@ -57,7 +59,7 @@ const unbanUser = async (id: string) => {
     const r = await fetch(`${API_BASE}/admin/users/${id}/unban`, { method: 'PATCH', headers: getAuth() });
     return r.json();
 };
-const broadcastNotif = async (payload: { title: string; message: string }) => {
+const broadcastNotif = async (payload: { title: string; message: string; sendEmail?: boolean }) => {
     const r = await fetch(`${API_BASE}/admin/broadcast`, {
         method: 'POST', headers: getAuth(), body: JSON.stringify(payload)
     });
@@ -114,6 +116,7 @@ const AdminPanel = () => {
     const [broadcastOpen, setBroadcastOpen] = useState(false);
     const [broadcastTitle, setBroadcastTitle] = useState('');
     const [broadcastMsg, setBroadcastMsg] = useState('');
+    const [sendEmailBroadcast, setSendEmailBroadcast] = useState(false);
     const [broadcastSuccess, setBroadcastSuccess] = useState('');
     const [reportSearch, setReportSearch] = useState('');
 
@@ -252,7 +255,7 @@ const AdminPanel = () => {
                                 </CardTitle>
                                 <Button variant="ghost" size="icon" onClick={() => setBroadcastOpen(false)}><X className="h-4 w-4" /></Button>
                             </CardHeader>
-                            <CardContent className="space-y-3">
+                            <CardContent className="space-y-4">
                                 <Input placeholder="Notification title..." value={broadcastTitle} onChange={e => setBroadcastTitle(e.target.value)} />
                                 <textarea
                                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] resize-none focus:outline-none focus:ring-1 focus:ring-ring"
@@ -260,10 +263,30 @@ const AdminPanel = () => {
                                     value={broadcastMsg}
                                     onChange={e => setBroadcastMsg(e.target.value)}
                                 />
-                                {broadcastSuccess && <p className="text-sm text-green-600">{broadcastSuccess}</p>}
-                                <Button className="w-full" onClick={() => broadcastMut.mutate({ title: broadcastTitle, message: broadcastMsg })} disabled={!broadcastTitle || !broadcastMsg || broadcastMut.isPending}>
+                                
+                                <div className="flex items-center space-x-2 py-1">
+                                    <Checkbox 
+                                        id="sendEmail" 
+                                        checked={sendEmailBroadcast} 
+                                        onCheckedChange={(checked) => setSendEmailBroadcast(!!checked)} 
+                                    />
+                                    <Label htmlFor="sendEmail" className="text-sm font-medium leading-none cursor-pointer flex items-center gap-1.5">
+                                        <Mail className="h-3.5 w-3.5" /> Send via Email to All Users
+                                    </Label>
+                                </div>
+
+                                {broadcastSuccess && <p className="text-sm text-green-600 font-medium">{broadcastSuccess}</p>}
+                                <Button 
+                                    className="w-full" 
+                                    onClick={() => broadcastMut.mutate({ 
+                                        title: broadcastTitle, 
+                                        message: broadcastMsg,
+                                        sendEmail: sendEmailBroadcast 
+                                    })} 
+                                    disabled={!broadcastTitle || !broadcastMsg || broadcastMut.isPending}
+                                >
                                     <Send className="h-4 w-4 mr-2" />
-                                    {broadcastMut.isPending ? 'Sending...' : 'Send to All Users'}
+                                    {broadcastMut.isPending ? 'Sending Broadcast...' : 'Send to All Users'}
                                 </Button>
                             </CardContent>
                         </Card>

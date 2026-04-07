@@ -1,0 +1,49 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start Frontend",
+            "type": "npm",
+            "script": "dev",
+            "path": "campus-connect-lost-found-main/",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "not-a-real-pattern",
+                    "endsPattern": "ready in"
+                }
+            }
+        },
+        {
+            "label": "Start Backend",
+            "type": "npm",
+            "script": "dev",
+            "path": "backend/",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "^$"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "not-a-real-pattern",
+                    "endsPattern": "ts-node-dev"
+                }
+            }
+        },
+        {
+            "label": "Start All Services",
+            "dependsOn": [
+                "Start Frontend",
+                "Start Backend"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

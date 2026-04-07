@@ -1,14 +1,19 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, Calendar, User, Clock, MessageCircle, Flag, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ItemCard from '@/components/ItemCard';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchItems, createConversation, updateItemStatus } from '@/lib/api';
+import { fetchItems, createConversation, updateItemStatus, reportItem } from '@/lib/api';
 import { categoryLabels, locationLabels } from '@/lib/types';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -60,6 +65,42 @@ const ItemDetail = () => {
     }
   });
 
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<string>("");
+  const [reportDescription, setReportDescription] = useState("");
+
+  const reportMutation = useMutation({
+    mutationFn: reportItem,
+    onSuccess: () => {
+      toast({
+        title: 'Report Submitted',
+        description: 'Thank you for keeping our community safe.',
+      });
+      setIsReportOpen(false);
+      setReportReason("");
+      setReportDescription("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to submit report. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const handleReportSubmit = () => {
+    if (!reportReason) {
+      toast({ title: 'Error', description: 'Please select a reason.', variant: 'destructive' });
+      return;
+    }
+    reportMutation.mutate({
+      itemId: id!,
+      reason: reportReason,
+      description: reportDescription
+    });
+  };
+
   const item = allItems.find((i) => i.id === id);
 
   if (isLoading) {
@@ -95,6 +136,28 @@ const ItemDetail = () => {
   const relatedItems = allItems
     .filter((i: any) => i.id !== item.id && i.category === item.category && i.status === 'active')
     .slice(0, 3);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: `Campus Connect - ${item.title}`,
+      text: `Check out this ${item.type} item on Campus Connect: ${item.title}`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link Copied",
+          description: "Item link has been copied to clipboard.",
+        });
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -169,12 +232,53 @@ const ItemDetail = () => {
                     <h1 className="text-2xl md:text-3xl font-bold text-foreground">{item.title}</h1>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="ghost" size="icon" title="Share">
+                    <Button variant="ghost" size="icon" title="Share" onClick={handleShare}>
                       <Share2 className="h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" title="Report">
+                    <Button variant="ghost" size="icon" title="Report" onClick={() => setIsReportOpen(true)}>
                       <Flag className="h-5 w-5" />
                     </Button>
+                    <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Report Item</DialogTitle>
+                          <DialogDescription>
+                            Help us keep Campus Connect safe. What is wrong with this item?
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="reason">Reason</Label>
+                            <Select value={reportReason} onValueChange={setReportReason}>
+                              <SelectTrigger id="reason">
+                                <SelectValue placeholder="Select a reason" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="spam">Spam or Misleading</SelectItem>
+                                <SelectItem value="inappropriate">Inappropriate Content</SelectItem>
+                                <SelectItem value="fake">Fake Item / Scam</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="description">Additional Details</Label>
+                            <Textarea
+                              id="description"
+                              placeholder="Please provide any additional information..."
+                              value={reportDescription}
+                              onChange={(e) => setReportDescription(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsReportOpen(false)}>Cancel</Button>
+                          <Button onClick={handleReportSubmit} disabled={reportMutation.isPending || !reportReason}>
+                            {reportMutation.isPending ? "Submitting..." : "Submit Report"}
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
 
@@ -256,18 +360,34 @@ const ItemDetail = () => {
                         </div>
                         <div>
                           <p className="font-medium text-foreground">{item.userName}</p>
-                          <p className="text-sm text-muted-foreground">President University</p>
+                          <p className="text-sm text-muted-foreground">{item.userEmail || 'President University'}</p>
                         </div>
                       </div>
-                      <Button
-                        className="w-full"
-                        size="lg"
-                        onClick={() => chatMutation.mutate({ itemId: item.id, receiverId: item.userId })}
-                        disabled={chatMutation.isPending}
-                      >
-                        <MessageCircle className="mr-2 h-4 w-4" />
-                        {chatMutation.isPending ? 'Starting Chat...' : 'Send Message'}
-                      </Button>
+                      <div className="flex flex-col space-y-2">
+                        <Button
+                          className="w-full"
+                          size="lg"
+                          onClick={() => chatMutation.mutate({ itemId: item.id, receiverId: item.userId })}
+                          disabled={chatMutation.isPending}
+                        >
+                          <MessageCircle className="mr-2 h-4 w-4" />
+                          {chatMutation.isPending ? 'Starting Chat...' : 'Send Message'}
+                        </Button>
+
+                        {item.userEmail && (
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            size="lg"
+                            asChild
+                          >
+                            <a href={`mailto:${item.userEmail}?subject=Regarding your post: ${item.title}`}>
+                              <Flag className="mr-2 h-4 w-4" />
+                              Send Email
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
 

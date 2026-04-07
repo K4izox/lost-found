@@ -1,6 +1,6 @@
 import { Item } from './types';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = `http://${window.location.hostname}:3000/api`;
 
 export const fetchItems = async (): Promise<Item[]> => {
     const response = await fetch(`${API_BASE_URL}/items`);
@@ -16,6 +16,7 @@ export const fetchItems = async (): Promise<Item[]> => {
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
         userName: item.user?.name || 'Anonymous',
+        userEmail: item.user?.email,
         userAvatar: item.user?.avatar,
     }));
 };
@@ -33,6 +34,7 @@ export const fetchItemById = async (id: string): Promise<Item> => {
         createdAt: new Date(item.createdAt),
         updatedAt: new Date(item.updatedAt),
         userName: item.user?.name || 'Anonymous',
+        userEmail: item.user?.email,
         userAvatar: item.user?.avatar,
     };
 };
@@ -102,6 +104,28 @@ export const loginUser = async (data: any) => {
     if (!response.ok) {
         throw new Error(result.error || 'Login failed');
     }
+    return result;
+};
+
+export const forgotPassword = async (email: string) => {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Gagal memproses lupa password');
+    return result;
+};
+
+export const resetPassword = async (data: any) => {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Gagal mereset kata sandi');
     return result;
 };
 
@@ -233,4 +257,15 @@ export const markAllNotificationsAsRead = async () => {
     });
     if (!response.ok) throw new Error('Failed to mark all notifications as read');
     return response.json();
+};
+
+export const reportItem = async (data: { itemId: string; reason: string; description?: string }) => {
+    const response = await fetch(`${API_BASE_URL}/items/${data.itemId}/report`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to submit report');
+    return result;
 };

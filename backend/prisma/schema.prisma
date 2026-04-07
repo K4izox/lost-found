@@ -8,86 +8,87 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   // 'student' | 'lecturer' | 'staff' | 'admin'
-  avatar    String?
-  isBanned  Boolean  @default(false)
-  createdAt DateTime @default(now())
-
+  id                 String         @id @default(uuid())
+  name               String
+  email              String         @unique
+  password           String
+  role               String
+  avatar             String?
+  createdAt          DateTime       @default(now())
+  isBanned           Boolean        @default(false)
+  resetToken         String?        @unique
+  resetTokenExpiry   DateTime?
+  user1conversations Conversation[] @relation("User1Conversations")
+  user2conversations Conversation[] @relation("User2Conversations")
   items              Item[]
   messages           Message[]
   notifications      Notification[]
-  user1conversations Conversation[] @relation("User1Conversations")
-  user2conversations Conversation[] @relation("User2Conversations")
   reports            Report[]
 }
 
 model Item {
-  id             String   @id @default(uuid())
-  type           String   // 'lost' | 'found'
+  id             String         @id @default(uuid())
+  type           String
   title          String
   description    String
-  category       String   // 'personal' | 'electronics' | 'academic' | 'miscellaneous'
-  location       String   // 'academic' | 'food' | 'common' | 'dormitory'
+  category       String
+  location       String
   locationDetail String
   date           DateTime
-  status         String   @default("active") // 'active' | 'claimed' | 'resolved' | 'expired'
+  status         String         @default("active")
   images         String[]
   userId         String
-  user           User     @relation(fields: [userId], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   conversations  Conversation[]
+  user           User           @relation(fields: [userId], references: [id])
   reports        Report[]
 }
 
 model Conversation {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   itemId    String
-  item      Item     @relation(fields: [itemId], references: [id])
   user1Id   String
-  user1     User     @relation("User1Conversations", fields: [user1Id], references: [id])
   user2Id   String
-  user2     User     @relation("User2Conversations", fields: [user2Id], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  item      Item      @relation(fields: [itemId], references: [id])
+  user1     User      @relation("User1Conversations", fields: [user1Id], references: [id])
+  user2     User      @relation("User2Conversations", fields: [user2Id], references: [id])
   messages  Message[]
 }
 
 model Message {
   id             String       @id @default(uuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderId       String
-  sender         User         @relation(fields: [senderId], references: [id])
   content        String
   read           Boolean      @default(false)
   createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation(fields: [senderId], references: [id])
 }
 
 model Notification {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   message   String
-  type      String   @default("info") // 'info', 'message', 'alert', 'success'
-  link      String?  // Optional link to navigate when clicked
+  type      String   @default("info")
+  link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Report {
   id          String   @id @default(uuid())
   itemId      String
-  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   reporterId  String
-  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  reason      String   // 'spam' | 'inappropriate' | 'misleading' | 'duplicate' | 'scam' | 'other'
-  description String?  // Optional additional details
-  status      String   @default("pending") // 'pending' | 'reviewed' | 'dismissed'
+  reason      String
+  description String?
+  status      String   @default("pending")
   createdAt   DateTime @default(now())
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 }

@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
+import { useToast } from '@/hooks/use-toast';
+import { forgotPassword } from '@/lib/api';
+
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
 });
@@ -19,6 +22,7 @@ const ForgotPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
+  const { toast } = useToast();
 
   const form = useForm<ForgotPasswordForm>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -29,11 +33,23 @@ const ForgotPassword = () => {
 
   const onSubmit = async (data: ForgotPasswordForm) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    setSubmittedEmail(data.email);
-    setIsSubmitted(true);
+    try {
+      await forgotPassword(data.email);
+      setSubmittedEmail(data.email);
+      setIsSubmitted(true);
+      toast({
+        title: 'Email Sent',
+        description: 'Jika email terdaftar, instruksi pemulihan telah dikirim.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Gagal memproses lupa password',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

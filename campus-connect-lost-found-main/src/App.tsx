@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Browse from "./pages/Browse";
 import ReportLost from "./pages/ReportLost";
 import ReportFound from "./pages/ReportFound";
@@ -37,6 +38,7 @@ const AnimatedRoutes = () => {
         <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
         <Route path="/register" element={<PageTransition><Register /></PageTransition>} />
         <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
+        <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
         <Route path="/browse" element={<PageTransition><Browse /></PageTransition>} />
         <Route path="/report-lost" element={<PageTransition><ReportLost /></PageTransition>} />
         <Route path="/report-found" element={<PageTransition><ReportFound /></PageTransition>} />

@@ -29,6 +29,7 @@ export interface Item {
   images: string[];
   userId: string;
   userName: string;
+  userEmail?: string;
   userAvatar?: string;
   createdAt: Date;
   updatedAt: Date;
