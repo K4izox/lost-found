@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUnreadCount, fetchUnreadNotificationsCount } from '@/lib/api';
 import puLogo from '@/assets/president-university-logo.png';
+import { ThemeToggle } from './ThemeToggle';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -77,6 +78,7 @@ const Header = () => {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-4">
+          <ThemeToggle />
           {token ? (
             <div className="flex items-center space-x-4">
               <Link to="/notifications">
@@ -137,14 +139,17 @@ const Header = () => {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden p-2"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          aria-label="Toggle menu"
-        >
-          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        {/* Mobile Menu Toggle & Theme Toggle */}
+        <div className="flex items-center md:hidden">
+          <ThemeToggle />
+          <button
+            className="p-2 ml-2"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, X, Send, Bot, User, Loader2, Volume2 } from 'lucide-react';
+import { API_BASE_URL } from '../lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -132,7 +133,7 @@ const AIChatbot = () => {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:3000/api/ai/chat', {
+            const response = await fetch(`${API_BASE_URL}/ai/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

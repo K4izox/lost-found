@@ -39,3 +39,9 @@ backend/out.txt
 # Temp files
 tmp/
 temp/
+
+# Neon CLI
+.neon/
+
+# Uploads (user content)
+backend/uploads/

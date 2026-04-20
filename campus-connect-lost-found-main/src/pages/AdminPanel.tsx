@@ -22,9 +22,10 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { fetchItems } from '@/lib/api';
+import { fetchItems, API_BASE_URL as API_BASE } from '@/lib/api';
 
-const API_BASE = 'http://localhost:3000/api';
+// Use the same dynamic base URL as the rest of the application
+// const API_BASE = 'http://localhost:3000/api';
 const getAuth = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 const fetchAdminStats = async () => {
