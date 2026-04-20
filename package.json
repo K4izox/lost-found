@@ -2,7 +2,7 @@
   "name": "campus-connect-root",
   "version": "1.0.0",
   "scripts": {
-    "build": "npx prisma generate --schema=backend/prisma/schema.prisma && tsc api/index.ts --outDir dist --esModuleInterop --skipLibCheck --target es2016 --module commonjs",
+    "build": "npx prisma generate --schema=backend/prisma/schema.prisma && tsc api/index.ts --outDir build --esModuleInterop --skipLibCheck --target es2016 --module commonjs",
     "postinstall": "npx prisma generate --schema=backend/prisma/schema.prisma"
   },
   "dependencies": {
