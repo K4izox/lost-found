@@ -11,7 +11,7 @@ import rateLimit from 'express-rate-limit';
 import xss from 'xss';
 import Groq from 'groq-sdk';
 import fs from 'fs';
-import { sendNotificationEmail } from '../backend/src/lib/email';
+import { sendNotificationEmail } from '../src/lib/email';
 import crypto from 'crypto';
 
 dotenv.config();
